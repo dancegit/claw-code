@@ -22,6 +22,9 @@ cargo run -p rusty-claude-cli -- prompt "explain this codebase"
 
 # JSON output for automation
 cargo run -p rusty-claude-cli -- --output-format json prompt "summarize src/main.rs"
+
+# Inspect registered hooks and whether they are enabled
+cargo run -p rusty-claude-cli -- hook list
 ```
 
 ## Configuration

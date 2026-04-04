@@ -115,6 +115,7 @@ cd rust
 cd rust
 ./target/debug/claw status
 ./target/debug/claw sandbox
+./target/debug/claw hook list
 ./target/debug/claw agents
 ./target/debug/claw mcp
 ./target/debug/claw skills
