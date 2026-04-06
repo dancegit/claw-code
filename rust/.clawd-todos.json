@@ -1,27 +1,37 @@
 [
   {
-    "content": "Architecture & dependency analysis",
-    "activeForm": "Complete",
-    "status": "completed"
-  },
-  {
-    "content": "Runtime crate deep analysis",
-    "activeForm": "Complete",
-    "status": "completed"
-  },
-  {
-    "content": "CLI & Tools analysis",
-    "activeForm": "Complete",
-    "status": "completed"
-  },
-  {
-    "content": "Code quality verification",
-    "activeForm": "Complete",
-    "status": "completed"
-  },
-  {
-    "content": "Synthesize findings into unified report",
-    "activeForm": "Writing report",
+    "content": "Phase 1: Structural Cleanup - Break down 9,200-line main.rs monolith",
+    "activeForm": "Structural cleanup",
     "status": "in_progress"
+  },
+  {
+    "content": "Phase 2: Ratatui Infrastructure - Add dependencies and terminal lifecycle",
+    "activeForm": "Setting up ratatui infrastructure",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 3: Core Layout & Status Bar - Split-pane layout with status",
+    "activeForm": "Implementing core layout",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 4: Chat View - Rich conversation rendering with streaming",
+    "activeForm": "Building chat view",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 5: Sidebar & Task Panel - Persistent sidebar with tasks/files",
+    "activeForm": "Creating sidebar",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 6: Input & Commands - Multi-line input with slash commands",
+    "activeForm": "Implementing input handling",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 7: Polish & Integration - Production-quality finishing touches",
+    "activeForm": "Polishing TUI",
+    "status": "pending"
   }
 ]
