@@ -67,7 +67,7 @@ const SLASH_COMMAND_SPECS: &[SlashCommandSpec] = &[
     SlashCommandSpec {
         name: "status",
         aliases: &[],
-        summary: "Show current session status",
+        summary: "Show current session status with branch freshness, worktrees, and recent commits",
         argument_hint: None,
         resume_supported: true,
     },
@@ -2314,8 +2314,7 @@ pub fn resolve_skill_invocation(
             .unwrap_or_default();
         if !skill_token.is_empty() {
             if let Err(error) = resolve_skill_path(cwd, skill_token) {
-                let mut message =
-                    format!("Unknown skill: {skill_token} ({error})");
+                let mut message = format!("Unknown skill: {skill_token} ({error})");
                 let roots = discover_skill_roots(cwd);
                 if let Ok(available) = load_skills_from_roots(&roots) {
                     let names: Vec<String> = available
@@ -2324,15 +2323,10 @@ pub fn resolve_skill_invocation(
                         .map(|s| s.name.clone())
                         .collect();
                     if !names.is_empty() {
-                        message.push_str(&format!(
-                            "\n  Available skills: {}",
-                            names.join(", ")
-                        ));
+                        message.push_str(&format!("\n  Available skills: {}", names.join(", ")));
                     }
                 }
-                message.push_str(
-                    "\n  Usage: /skills [list|install <path>|help|<skill> [args]]",
-                );
+                message.push_str("\n  Usage: /skills [list|install <path>|help|<skill> [args]]");
                 return Err(message);
             }
         }
@@ -4432,6 +4426,16 @@ mod tests {
         assert!(help.contains("/mcp"));
         assert!(help.contains("Summary          Inspect configured MCP servers"));
         assert!(help.contains("Category         Discovery & debugging"));
+        assert!(help.contains("Resume           Supported with --resume SESSION.jsonl"));
+    }
+
+    #[test]
+    fn renders_status_help_with_repo_snapshot_summary() {
+        let help = render_slash_command_help_detail("status").expect("detail help should exist");
+        assert!(help.contains("/status"));
+        assert!(help.contains(
+            "Summary          Show current session status with branch freshness, worktrees, and recent commits"
+        ));
         assert!(help.contains("Resume           Supported with --resume SESSION.jsonl"));
     }
 
