@@ -112,6 +112,7 @@ Run `claw --help` for usage."
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
+    let cwd = env::current_dir()?;
     match parse_args(&args)? {
         CliAction::DumpManifests { output_format } => dump_manifests(output_format)?,
         CliAction::BootstrapPlan { output_format } => print_bootstrap_plan(output_format)?,
@@ -128,10 +129,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             output_format,
         } => LiveCli::print_skills(args.as_deref(), output_format)?,
         CliAction::PrintSystemPrompt {
-            cwd,
+            cwd: prompt_cwd,
             date,
             output_format,
-        } => print_system_prompt(cwd, date, output_format)?,
+        } => print_system_prompt(prompt_cwd, date, output_format)?,
         CliAction::Version { output_format } => print_version(output_format)?,
         CliAction::ResumeSession {
             session_path,
@@ -141,15 +142,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         CliAction::Status {
             model,
             permission_mode,
-<<<<<<< HEAD
             output_format,
         } => print_status_snapshot(&model, permission_mode, output_format)?,
-        CliAction::Sandbox { output_format } => print_sandbox_status_snapshot(output_format)?,
-=======
-        } => print_status_snapshot(&model, permission_mode)?,
         CliAction::ConfigShow => print_config_json()?,
-        CliAction::Sandbox => print_sandbox_status_snapshot()?,
->>>>>>> cd8e373 (feat(cli): add claw config show command)
+        CliAction::Sandbox { output_format } => print_sandbox_status_snapshot(output_format)?,
         CliAction::Prompt {
             prompt,
             model,
@@ -162,6 +158,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         CliAction::Logout { output_format } => run_logout(output_format)?,
         CliAction::Doctor { output_format } => run_doctor(output_format)?,
         CliAction::Init { output_format } => run_init(output_format)?,
+        CliAction::BranchDelete => {
+            delete_merged_local_branches_in(&cwd)?;
+        },
         CliAction::Repl {
             model,
             allowed_tools,
@@ -214,11 +213,8 @@ enum CliAction {
     Sandbox {
         output_format: CliOutputFormat,
     },
-<<<<<<< HEAD
-=======
     ConfigShow,
-    Sandbox,
->>>>>>> cd8e373 (feat(cli): add claw config show command)
+    BranchDelete,
     Prompt {
         prompt: String,
         model: String,
@@ -487,11 +483,7 @@ fn parse_single_word_command_alias(
     permission_mode_override: Option<PermissionMode>,
     output_format: CliOutputFormat,
 ) -> Option<Result<CliAction, String>> {
-<<<<<<< HEAD
-    if rest.len() != 1 {
-=======
     if rest.len() != 1 || matches!(rest[0].as_str(), "branch" | "config") {
->>>>>>> cd8e373 (feat(cli): add claw config show command)
         return None;
     }
 
@@ -816,9 +808,6 @@ fn parse_system_prompt_args(
     })
 }
 
-<<<<<<< HEAD
-fn parse_resume_args(args: &[String], output_format: CliOutputFormat) -> Result<CliAction, String> {
-=======
 fn parse_config_args(args: &[String]) -> Result<CliAction, String> {
     match args {
         [] => Err("Usage: claw config show".to_string()),
@@ -839,8 +828,7 @@ fn parse_branch_args(args: &[String]) -> Result<CliAction, String> {
     }
 }
 
-fn parse_resume_args(args: &[String]) -> Result<CliAction, String> {
->>>>>>> cd8e373 (feat(cli): add claw config show command)
+fn parse_resume_args(args: &[String], output_format: CliOutputFormat) -> Result<CliAction, String> {
     let (session_path, command_tokens): (PathBuf, &[String]) = match args.first() {
         None => (PathBuf::from(LATEST_SESSION_REFERENCE), &[]),
         Some(first) if looks_like_slash_command_token(first) => {
@@ -991,6 +979,11 @@ fn render_doctor_report() -> Result<DoctorReport, Box<dyn std::error::Error>> {
     let git_summary = parse_git_workspace_summary(project_context.git_status.as_deref());
     let empty_config = runtime::RuntimeConfig::empty();
     let sandbox_config = config.as_ref().ok().unwrap_or(&empty_config);
+    let git_scope = project_root.clone().unwrap_or_else(|| cwd.clone());
+    let current_worktree = project_root.clone().unwrap_or_else(|| cwd.clone());
+    let git_freshness = load_git_branch_freshness(&git_scope);
+    let git_worktrees = load_git_worktrees(&git_scope, &current_worktree);
+    let recent_commits = load_recent_commits(&git_scope, 3);
     let context = StatusContext {
         cwd: cwd.clone(),
         session_path: None,
@@ -1003,6 +996,9 @@ fn render_doctor_report() -> Result<DoctorReport, Box<dyn std::error::Error>> {
         project_root,
         git_branch,
         git_summary,
+        git_freshness,
+        git_worktrees,
+        recent_commits,
         sandbox_status: resolve_sandbox_status(sandbox_config.sandbox(), &cwd),
     };
     Ok(DoctorReport {
@@ -2094,6 +2090,57 @@ fn resolve_git_branch_for(cwd: &Path) -> Option<String> {
     } else {
         Some(fallback.to_string())
     }
+}
+
+fn delete_merged_local_branches_in(cwd: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let default_branch = run_git_capture_in(cwd, &["symbolic-ref", "--short", "HEAD"])
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "main".to_string());
+
+    let output = match run_git_capture_in(
+        cwd,
+        &[
+            "branch",
+            "--merged",
+            default_branch.as_str(),
+            "--format",
+            "%(refname:short)",
+        ],
+    ) {
+        Some(o) => o,
+        None => {
+            eprintln!("Could not list merged branches.");
+            return Ok(());
+        }
+    };
+
+    let current = run_git_capture_in(cwd, &["symbolic-ref", "--short", "HEAD"])
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+
+    let to_delete: Vec<&str> = output
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty() && *l != current && *l != default_branch)
+        .collect();
+
+    if to_delete.is_empty() {
+        println!("No merged local branches to delete.");
+        return Ok(());
+    }
+
+    for branch in &to_delete {
+        let status = std::process::Command::new("git")
+            .args(["branch", "-d", branch])
+            .current_dir(cwd)
+            .status()?;
+        if status.success() {
+            println!("Deleted branch {branch}.");
+        } else {
+            eprintln!("Failed to delete branch {branch}.");
+        }
+    }
+    Ok(())
 }
 
 fn git_ref_exists_in(cwd: &Path, reference: &str) -> bool {
@@ -4364,7 +4411,6 @@ fn print_sandbox_status_snapshot(
     Ok(())
 }
 
-<<<<<<< HEAD
 fn render_help_topic(topic: LocalHelpTopic) -> String {
     match topic {
         LocalHelpTopic::Status => "Status
@@ -4390,7 +4436,8 @@ fn render_help_topic(topic: LocalHelpTopic) -> String {
 
 fn print_help_topic(topic: LocalHelpTopic) {
     println!("{}", render_help_topic(topic));
-=======
+}
+
 fn print_config_json() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", render_merged_runtime_config_json()?);
     Ok(())
@@ -4402,7 +4449,6 @@ fn render_merged_runtime_config_json() -> Result<String, Box<dyn std::error::Err
     let runtime_config = loader.load()?;
     let parsed: serde_json::Value = serde_json::from_str(&runtime_config.as_json().render())?;
     Ok(serde_json::to_string_pretty(&parsed)?)
->>>>>>> cd8e373 (feat(cli): add claw config show command)
 }
 
 fn render_config_report(section: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
@@ -6671,12 +6717,8 @@ fn print_help_to(out: &mut impl Write) -> io::Result<()> {
         out,
         "  claw --resume {LATEST_SESSION_REFERENCE} /status /diff /export notes.txt"
     )?;
-<<<<<<< HEAD
-=======
     writeln!(out, "  claw config show")?;
     writeln!(out, "  claw branch delete")?;
->>>>>>> cd8e373 (feat(cli): add claw config show command)
-    writeln!(out, "  claw agents")?;
     writeln!(out, "  claw mcp show my-server")?;
     writeln!(out, "  claw /skills")?;
     writeln!(out, "  claw doctor")?;
@@ -6706,22 +6748,6 @@ fn print_help(output_format: CliOutputFormat) -> Result<(), Box<dyn std::error::
 mod tests {
     use super::{
         build_runtime_plugin_state_with_loader, build_runtime_with_plugin_state,
-<<<<<<< HEAD
-        create_managed_session_handle, describe_tool_progress, filter_tool_specs,
-        format_bughunter_report, format_commit_preflight_report, format_commit_skipped_report,
-        format_compact_report, format_cost_report, format_internal_prompt_progress_line,
-        format_issue_report, format_model_report, format_model_switch_report,
-        format_permissions_report, format_permissions_switch_report, format_pr_report,
-        format_resume_report, format_status_report, format_tool_call_start, format_tool_result,
-        format_ultraplan_report, format_unknown_slash_command,
-        format_unknown_slash_command_message, normalize_permission_mode, parse_args,
-        parse_git_status_branch, parse_git_status_metadata_for, parse_git_workspace_summary,
-        parse_git_worktrees, parse_recent_commits, permission_policy, print_help_to,
-        push_output_block, render_config_report,
-        render_diff_report, render_diff_report_for, render_memory_report, render_repl_help,
-        render_resume_usage, resolve_model_alias, resolve_session_reference, response_to_events,
-        resume_supported_slash_commands, run_resume_command,
-=======
         create_managed_session_handle, delete_merged_local_branches_in, describe_tool_progress,
         filter_tool_specs, format_bughunter_report, format_commit_preflight_report,
         format_commit_skipped_report, format_compact_report, format_cost_report,
@@ -6736,7 +6762,6 @@ mod tests {
         render_diff_report_for, render_memory_report, render_merged_runtime_config_json,
         render_repl_help, render_resume_usage, resolve_model_alias, resolve_session_reference,
         response_to_events, resume_supported_slash_commands, run_resume_command,
->>>>>>> cd8e373 (feat(cli): add claw config show command)
         slash_command_completion_candidates_with_sessions, status_context, validate_no_args,
         write_mcp_server_fixture, CliAction, CliOutputFormat, CliToolExecutor,
         GitBranchFreshness, GitCommitEntry, GitWorkspaceSummary, GitWorktreeEntry,
@@ -8160,11 +8185,8 @@ UU conflicted.rs",
         let mut help = Vec::new();
         print_help_to(&mut help).expect("help should render");
         let help = String::from_utf8(help).expect("help should be utf8");
-<<<<<<< HEAD
-=======
         assert!(help.contains("claw config show"));
         assert!(help.contains("claw branch delete"));
->>>>>>> cd8e373 (feat(cli): add claw config show command)
         assert!(help.contains("claw --resume [SESSION.jsonl|session-id|latest]"));
         assert!(help.contains("Use `latest` with --resume, /resume, or /session switch"));
         assert!(help.contains("claw --resume latest"));

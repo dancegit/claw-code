@@ -162,13 +162,55 @@ fn config_command_loads_defaults_from_standard_config_locations() {
 }
 
 #[test]
-<<<<<<< HEAD
 fn doctor_command_runs_as_a_local_shell_entrypoint() {
     // given
     let temp_dir = unique_temp_dir("doctor-entrypoint");
     let config_home = temp_dir.join("home").join(".claw");
     fs::create_dir_all(&config_home).expect("config home should exist");
-=======
+
+    fs::write(
+        config_home.join("settings.json"),
+        r#"{"model":"haiku","sandbox":{"enabled":true}}"#,
+    )
+    .expect("write user settings");
+    fs::write(
+        temp_dir.join(".claw.json"),
+        r#"{"permissions":{"allow":["git status"]},"sandbox":{"networkIsolation":true}}"#,
+    )
+    .expect("write project settings");
+    fs::write(
+        temp_dir.join(".claw").join("settings.local.json"),
+        r#"{"model":"opus","sandbox":{"filesystemMode":"workspace-only"}}"#,
+    )
+    .expect("write local settings");
+
+    // when
+    let output = command_in(&temp_dir)
+        .env("CLAW_CONFIG_HOME", &config_home)
+        .env_remove("ANTHROPIC_API_KEY")
+        .env_remove("ANTHROPIC_AUTH_TOKEN")
+        .env("ANTHROPIC_BASE_URL", "http://127.0.0.1:9")
+        .arg("doctor")
+        .output()
+        .expect("claw doctor should launch");
+
+    // then
+    assert_success(&output);
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
+    assert!(stdout.contains("Doctor"));
+    assert!(stdout.contains("Auth"));
+    assert!(stdout.contains("Config"));
+    assert!(stdout.contains("Workspace"));
+    assert!(stdout.contains("Sandbox"));
+    assert!(!stdout.contains("Thinking"));
+
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be utf8");
+    assert!(!stderr.contains("auth_unavailable"));
+
+    fs::remove_dir_all(temp_dir).expect("cleanup temp dir");
+}
+
+#[test]
 fn config_show_command_prints_merged_runtime_config_as_json() {
     // given
     let temp_dir = unique_temp_dir("config-show");
@@ -191,34 +233,25 @@ fn config_show_command_prints_merged_runtime_config_as_json() {
         r#"{"model":"opus","sandbox":{"filesystemMode":"workspace-only"}}"#,
     )
     .expect("write local settings");
->>>>>>> cd8e373 (feat(cli): add claw config show command)
 
     // when
     let output = command_in(&temp_dir)
         .env("CLAW_CONFIG_HOME", &config_home)
-<<<<<<< HEAD
-        .env_remove("ANTHROPIC_API_KEY")
-        .env_remove("ANTHROPIC_AUTH_TOKEN")
-        .env("ANTHROPIC_BASE_URL", "http://127.0.0.1:9")
-        .arg("doctor")
-        .output()
-        .expect("claw doctor should launch");
-=======
         .args(["config", "show"])
         .output()
         .expect("claw should launch");
->>>>>>> cd8e373 (feat(cli): add claw config show command)
 
     // then
     assert_success(&output);
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
-<<<<<<< HEAD
-    assert!(stdout.contains("Doctor"));
-    assert!(stdout.contains("Auth"));
-    assert!(stdout.contains("Config"));
-    assert!(stdout.contains("Workspace"));
-    assert!(stdout.contains("Sandbox"));
-    assert!(!stdout.contains("Thinking"));
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("config show output should be valid json");
+    assert_eq!(parsed["model"], "opus");
+    assert_eq!(parsed["permissions"]["allow"], json!(["git status"]));
+    assert_eq!(parsed["sandbox"]["enabled"], true);
+    assert_eq!(parsed["sandbox"]["networkIsolation"], true);
+    assert_eq!(parsed["sandbox"]["filesystemMode"], "workspace-only");
+    assert!(stdout.starts_with("{\n"));
 
     fs::remove_dir_all(temp_dir).expect("cleanup temp dir");
 }
@@ -262,16 +295,6 @@ fn local_subcommand_help_does_not_fall_through_to_runtime_or_provider_calls() {
     let status_stderr = String::from_utf8(status_help.stderr).expect("stderr should be utf8");
     assert!(!doctor_stderr.contains("auth_unavailable"));
     assert!(!status_stderr.contains("auth_unavailable"));
-=======
-    let parsed: serde_json::Value =
-        serde_json::from_str(&stdout).expect("config show output should be valid json");
-    assert_eq!(parsed["model"], "opus");
-    assert_eq!(parsed["permissions"]["allow"], json!(["git status"]));
-    assert_eq!(parsed["sandbox"]["enabled"], true);
-    assert_eq!(parsed["sandbox"]["networkIsolation"], true);
-    assert_eq!(parsed["sandbox"]["filesystemMode"], "workspace-only");
-    assert!(stdout.starts_with("{\n"));
->>>>>>> cd8e373 (feat(cli): add claw config show command)
 
     fs::remove_dir_all(temp_dir).expect("cleanup temp dir");
 }
