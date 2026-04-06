@@ -141,9 +141,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         CliAction::Status {
             model,
             permission_mode,
+<<<<<<< HEAD
             output_format,
         } => print_status_snapshot(&model, permission_mode, output_format)?,
         CliAction::Sandbox { output_format } => print_sandbox_status_snapshot(output_format)?,
+=======
+        } => print_status_snapshot(&model, permission_mode)?,
+        CliAction::ConfigShow => print_config_json()?,
+        CliAction::Sandbox => print_sandbox_status_snapshot()?,
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
         CliAction::Prompt {
             prompt,
             model,
@@ -208,6 +214,11 @@ enum CliAction {
     Sandbox {
         output_format: CliOutputFormat,
     },
+<<<<<<< HEAD
+=======
+    ConfigShow,
+    Sandbox,
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
     Prompt {
         prompt: String,
         model: String,
@@ -415,6 +426,7 @@ fn parse_args(args: &[String]) -> Result<CliAction, String> {
             args: join_optional_args(&rest[1..]),
             output_format,
         }),
+        "config" => parse_config_args(&rest[1..]),
         "mcp" => Ok(CliAction::Mcp {
             args: join_optional_args(&rest[1..]),
             output_format,
@@ -475,7 +487,11 @@ fn parse_single_word_command_alias(
     permission_mode_override: Option<PermissionMode>,
     output_format: CliOutputFormat,
 ) -> Option<Result<CliAction, String>> {
+<<<<<<< HEAD
     if rest.len() != 1 {
+=======
+    if rest.len() != 1 || matches!(rest[0].as_str(), "branch" | "config") {
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
         return None;
     }
 
@@ -499,6 +515,7 @@ fn bare_slash_command_guidance(command_name: &str) -> Option<String> {
         "dump-manifests"
             | "bootstrap-plan"
             | "agents"
+            | "config"
             | "mcp"
             | "skills"
             | "system-prompt"
@@ -799,7 +816,31 @@ fn parse_system_prompt_args(
     })
 }
 
+<<<<<<< HEAD
 fn parse_resume_args(args: &[String], output_format: CliOutputFormat) -> Result<CliAction, String> {
+=======
+fn parse_config_args(args: &[String]) -> Result<CliAction, String> {
+    match args {
+        [] => Err("Usage: claw config show".to_string()),
+        [action] if action == "show" => Ok(CliAction::ConfigShow),
+        [action, ..] => Err(format!(
+            "unknown config action: {action}. Usage: claw config show"
+        )),
+    }
+}
+
+fn parse_branch_args(args: &[String]) -> Result<CliAction, String> {
+    match args {
+        [] => Err("Usage: claw branch delete".to_string()),
+        [action] if action == "delete" => Ok(CliAction::BranchDelete),
+        [action, ..] => Err(format!(
+            "unknown branch action: {action}. Usage: claw branch delete"
+        )),
+    }
+}
+
+fn parse_resume_args(args: &[String]) -> Result<CliAction, String> {
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
     let (session_path, command_tokens): (PathBuf, &[String]) = match args.first() {
         None => (PathBuf::from(LATEST_SESSION_REFERENCE), &[]),
         Some(first) if looks_like_slash_command_token(first) => {
@@ -4323,6 +4364,7 @@ fn print_sandbox_status_snapshot(
     Ok(())
 }
 
+<<<<<<< HEAD
 fn render_help_topic(topic: LocalHelpTopic) -> String {
     match topic {
         LocalHelpTopic::Status => "Status
@@ -4348,6 +4390,19 @@ fn render_help_topic(topic: LocalHelpTopic) -> String {
 
 fn print_help_topic(topic: LocalHelpTopic) {
     println!("{}", render_help_topic(topic));
+=======
+fn print_config_json() -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", render_merged_runtime_config_json()?);
+    Ok(())
+}
+
+fn render_merged_runtime_config_json() -> Result<String, Box<dyn std::error::Error>> {
+    let cwd = env::current_dir()?;
+    let loader = ConfigLoader::default_for(&cwd);
+    let runtime_config = loader.load()?;
+    let parsed: serde_json::Value = serde_json::from_str(&runtime_config.as_json().render())?;
+    Ok(serde_json::to_string_pretty(&parsed)?)
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
 }
 
 fn render_config_report(section: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
@@ -6533,6 +6588,8 @@ fn print_help_to(out: &mut impl Write) -> io::Result<()> {
         out,
         "      Show workspace status, origin/main freshness, active worktrees, and recent commits"
     )?;
+    writeln!(out, "  claw config show")?;
+    writeln!(out, "      Print the merged runtime config as JSON")?;
     writeln!(out, "  claw sandbox")?;
     writeln!(out, "      Show the current sandbox isolation snapshot")?;
     writeln!(out, "  claw doctor")?;
@@ -6614,6 +6671,11 @@ fn print_help_to(out: &mut impl Write) -> io::Result<()> {
         out,
         "  claw --resume {LATEST_SESSION_REFERENCE} /status /diff /export notes.txt"
     )?;
+<<<<<<< HEAD
+=======
+    writeln!(out, "  claw config show")?;
+    writeln!(out, "  claw branch delete")?;
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
     writeln!(out, "  claw agents")?;
     writeln!(out, "  claw mcp show my-server")?;
     writeln!(out, "  claw /skills")?;
@@ -6644,6 +6706,7 @@ fn print_help(output_format: CliOutputFormat) -> Result<(), Box<dyn std::error::
 mod tests {
     use super::{
         build_runtime_plugin_state_with_loader, build_runtime_with_plugin_state,
+<<<<<<< HEAD
         create_managed_session_handle, describe_tool_progress, filter_tool_specs,
         format_bughunter_report, format_commit_preflight_report, format_commit_skipped_report,
         format_compact_report, format_cost_report, format_internal_prompt_progress_line,
@@ -6658,6 +6721,22 @@ mod tests {
         render_diff_report, render_diff_report_for, render_memory_report, render_repl_help,
         render_resume_usage, resolve_model_alias, resolve_session_reference, response_to_events,
         resume_supported_slash_commands, run_resume_command,
+=======
+        create_managed_session_handle, delete_merged_local_branches_in, describe_tool_progress,
+        filter_tool_specs, format_bughunter_report, format_commit_preflight_report,
+        format_commit_skipped_report, format_compact_report, format_cost_report,
+        format_internal_prompt_progress_line, format_issue_report, format_model_report,
+        format_model_switch_report, format_permissions_report, format_permissions_switch_report,
+        format_pr_report, format_resume_report, format_status_report, format_tool_call_start,
+        format_tool_result, format_ultraplan_report, format_unknown_slash_command,
+        format_unknown_slash_command_message, git_ref_exists_in, normalize_permission_mode,
+        parse_args, parse_git_status_branch, parse_git_status_metadata_for,
+        parse_git_workspace_summary, parse_git_worktrees, parse_recent_commits, permission_policy,
+        print_help_to, push_output_block, render_config_report, render_diff_report,
+        render_diff_report_for, render_memory_report, render_merged_runtime_config_json,
+        render_repl_help, render_resume_usage, resolve_model_alias, resolve_session_reference,
+        response_to_events, resume_supported_slash_commands, run_resume_command,
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
         slash_command_completion_candidates_with_sessions, status_context, validate_no_args,
         write_mcp_server_fixture, CliAction, CliOutputFormat, CliToolExecutor,
         GitBranchFreshness, GitCommitEntry, GitWorkspaceSummary, GitWorktreeEntry,
@@ -7097,6 +7176,18 @@ mod tests {
                 .expect("doctor help should parse"),
             CliAction::HelpTopic(LocalHelpTopic::Doctor)
         );
+    }
+
+    #[test]
+    fn parses_config_show_subcommand() {
+        assert_eq!(
+            parse_args(&["config".to_string(), "show".to_string()])
+                .expect("config show should parse"),
+            CliAction::ConfigShow
+        );
+
+        let error = parse_args(&["config".to_string()]).expect_err("missing action should fail");
+        assert!(error.contains("Usage: claw config show"));
     }
 
     #[test]
@@ -7816,6 +7907,16 @@ mod tests {
     }
 
     #[test]
+    fn merged_runtime_config_json_renders_pretty_valid_json() {
+        let rendered =
+            render_merged_runtime_config_json().expect("runtime config json should render");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&rendered).expect("runtime config json should parse");
+        assert!(parsed.is_object());
+        assert!(rendered.starts_with("{\n") || rendered == "{}");
+    }
+
+    #[test]
     fn memory_report_uses_sectioned_layout() {
         let report = render_memory_report().expect("memory report should render");
         assert!(report.contains("Memory"));
@@ -8059,6 +8160,11 @@ UU conflicted.rs",
         let mut help = Vec::new();
         print_help_to(&mut help).expect("help should render");
         let help = String::from_utf8(help).expect("help should be utf8");
+<<<<<<< HEAD
+=======
+        assert!(help.contains("claw config show"));
+        assert!(help.contains("claw branch delete"));
+>>>>>>> cd8e373 (feat(cli): add claw config show command)
         assert!(help.contains("claw --resume [SESSION.jsonl|session-id|latest]"));
         assert!(help.contains("Use `latest` with --resume, /resume, or /session switch"));
         assert!(help.contains("claw --resume latest"));
