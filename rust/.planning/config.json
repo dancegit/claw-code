@@ -1,0 +1,10 @@
+{
+  "model_profile": "inherit",
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "git": {
+    "branching_strategy": "none"
+  }
+}
